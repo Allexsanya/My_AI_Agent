@@ -4,6 +4,8 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from dotenv import load_dotenv
 import random
+from collections import defaultdict
+import time
 import logging
 from datetime import datetime
 # Создаём имя файла с датой, например: log_2025-06-01.txt
@@ -40,6 +42,8 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+last_user_request = defaultdict(lambda: 0) # user_id -> timestamp
+
 async def quote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quotes = [
         "Не знаешь как поступать? Поступай как знаешь.",
@@ -50,8 +54,14 @@ async def quote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    user_id = user.id
+    now = time.time()
+    if now - last_user_request[user_id] < 5:
+        await update.message.reply_text("Not so fast bro, I'm thinking")
+        return
+    last_user_request[user_id] = now
     user_question = update.message.text
-    logger.info(f"User {user.username} (ID: {user.id}) asked: {user_question}")
+    logger.info(f"[{update.effective_user.username} | ID: {update.effective_user.id}] -> {user_question}")
     if not user_question:
         await update.message.reply_text("Бро, напиши вопрос после /ask :)")
         return
