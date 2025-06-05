@@ -55,7 +55,8 @@ async def joke_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     jokes = [
         "Почему программисты путают Хэллоуин и Рождество? Потому что Oct 31 == Dec 25!",
         "Что сказал Python-программист, когда его код сработал с первого раза? —Этого не может быть!",
-        "Почему коты — лучшие программисты? Потому что они отлично работают с пай (паузам)."
+        "Почему коты — лучшие программисты? Потому что они отлично работают с пай (паузам).",
+        "Anhelina gotovit vkusniy borsch"
     ]
     await update.message.reply_text(random.choice(jokes))
 
