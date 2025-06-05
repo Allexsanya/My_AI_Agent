@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from dotenv import load_dotenv
 import random
 import logging
@@ -93,15 +93,14 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Error calling OpenAI API: {e}")
         await update.message.reply_text("Извините, произошла ошибка при обработке вашего запроса.")
 
-app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-app.add_handler(CommandHandler("start", start_command))
-app.add_handler(CommandHandler("help", help_command))
-app.add_handler(CommandHandler("status", status_command))
-app.add_handler(CommandHandler("motivate", motivate_command))
-app.add_handler(CommandHandler("joke", joke_command))
-app.add_handler(CommandHandler("quote", quote_command))
-app.add_handler(CommandHandler("ask", ask_command))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ask_command))
 
-print("Бот запущен!")
-app.run_polling()
+WEBHOOK_URL = "https://my-ai-bot-ehgw.onrender.com"  # ← свой URL Render
+
+application.run_webhook(
+    listen="0.0.0.0",
+    port=int(os.getenv("PORT", 10000)),
+    webhook_url=WEBHOOK_URL,
+)
