@@ -23,6 +23,7 @@ logging.basicConfig(
 # Отдельный логгер для ошибок
 error_handler = logging.FileHandler(error_log_filename, mode='a', encoding='utf-8')
 error_handler.setLevel(logging.ERROR)
+logging.getLogger().addHandler(error_handler)
 
 logger = logging.getLogger(__name__)
 logger.addHandler(error_handler)
