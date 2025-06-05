@@ -39,27 +39,6 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Здорова, бро, я твой помощник!")
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Я могу: /start, /help, /status, /motivate, /joke, /quote, /ask")
-
-async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Я онлайн и готов помогать!")
-
-async def motivate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Never give up!")
-
-async def joke_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    jokes = [
-        "Почему программисты путают Хэллоуин и Рождество? Потому что Oct 31 == Dec 25!",
-        "Что сказал Python-программист, когда его код сработал с первого раза? —Этого не может быть!",
-        "Почему коты — лучшие программисты? Потому что они отлично работают с пай (паузам).",
-        "Anhelina gotovit vkusniy borsch"
-    ]
-    await update.message.reply_text(random.choice(jokes))
-
 async def quote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quotes = [
         "Не знаешь как поступать? Поступай как знаешь.",
@@ -70,7 +49,7 @@ async def quote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    user_question = ' '.join(context.args)
+    user_question = update.message.text
     logger.info(f"User {user.username} (ID: {user.id}) asked: {user_question}")
     if not user_question:
         await update.message.reply_text("Бро, напиши вопрос после /ask :)")
