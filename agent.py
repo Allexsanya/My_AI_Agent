@@ -8,9 +8,12 @@ from collections import defaultdict
 import time
 import logging
 from datetime import datetime
-# Создаём имя файла с датой, например: log_2025-06-01.txt
-log_filename = f"log_{datetime.now().strftime('%Y-%m-%d')}.txt"
-error_log_filename = f"errors_{datetime.now().strftime('%Y-%m-%d')}.txt"
+
+# Убедимся, что папка logs существует
+os.makedirs("logs", exist_ok=True)
+
+log_filename = os.path.join("logs", f"log_{datetime.now().strftime('%Y-%m-%d')}.txt")
+error_log_filename = os.path.join("logs", f"errors_{datetime.now().strftime('%Y-%m-%d')}.txt")
 
 # Основной лог
 logging.basicConfig(
@@ -31,9 +34,9 @@ logger = logging.getLogger(__name__)
 logger.addHandler(error_handler)
 
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("telegram_bot")
+logger.setLevel(logging.INFO)
+logger.addHandler(error_handler)
 # Загружаем .env файл
 load_dotenv(dotenv_path='secrets/keys.env')
 
@@ -55,13 +58,26 @@ async def quote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
+    username = user.username or "NoUsername"
+    user_text = update.message.text
+    # 🔒 Ограничение по длине сообщения
+    if len(user_text) > 500:
+        await update.message.reply_text("😶 Слишком длинное сообщение, сократи, бро.")
+        return
+
+    # 🧹 Фильтрация по ключевым словам
+    SPAM_KEYWORDS = ["crypto", "sex", "porn", "http", "nude", "casino", "bitcoin"]
+    if any(word in user_text.lower() for word in SPAM_KEYWORDS):
+        logger.warning(f"SPAM BLOCKED from {username} ({user_id}): {user_text}")
+        await update.message.reply_text("🚫 Это сообщение похоже на спам.")
+        return
     now = time.time()
-    if now - last_user_request[user_id] < 5:
+    if now - last_user_request[user_id] < 10:
         await update.message.reply_text("Not so fast bro, I'm thinking")
         return
     last_user_request[user_id] = now
     user_question = update.message.text
-    logger.info(f"[{update.effective_user.username} | ID: {update.effective_user.id}] -> {user_question}")
+    logger.info(f"[{username} | ID: {user_id}] -> {user_text}")
     if not user_question:
         await update.message.reply_text("Бро, напиши вопрос после /ask :)")
         return
@@ -88,7 +104,18 @@ application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ask_command))
 
 WEBHOOK_URL = "https://my-ai-bot-ehgw.onrender.com"  # ← свой URL Render
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    user_id = user.id
+    username = user.username or "NoUsername"
 
+    logger.info(f"[{username} | ID: {user_id}] sent /start")
+
+    await update.message.reply_text("👋 Привет! Просто напиши сообщение, и я постараюсь ответить как умный бот!")
+
+# Обработка команд
+application.add_handler(CommandHandler("start", start_command))
+application.add_handler(CommandHandler("help", start_command))  # Пока одна функция на всё
 application.run_webhook(
     listen="0.0.0.0",
     port=int(os.getenv("PORT", 10000)),
