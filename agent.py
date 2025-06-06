@@ -8,6 +8,24 @@ from dotenv import load_dotenv
 import random
 import time
 from collections import defaultdict
+from telegram.constants import ChatAction
+from telegram.helpers import escape_markdown
+from telegram import InputFile
+
+# 📤 Команда /logs — отправка логов в чат
+async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.chat.send_action(action=ChatAction.UPLOAD_DOCUMENT)
+
+    try:
+        log_path = os.path.join("/tmp/logs", f"log_{datetime.now().strftime('%Y-%m-%d')}.txt")
+        with open(log_path, "rb") as file:
+            await update.message.reply_document(
+                document=InputFile(file),
+                caption="🧾 Логи за сегодня"
+            )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке логов: {e}")
+        await update.message.reply_text("⚠ Не удалось отправить лог-файл.")
 
 # 🔧 Логгер
 log_dir = "/tmp/logs"
@@ -127,6 +145,7 @@ application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ask_comm
 application.add_handler(CommandHandler("start", start_command))
 application.add_handler(CommandHandler("help", start_command))
 application.add_handler(CommandHandler("quote", quote_command))
+application.add_handler(CommandHandler("logs", logs_command))
 
 # 🚀 Запуск
 application.run_webhook(
