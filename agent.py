@@ -34,6 +34,7 @@ error_handler.setLevel(logging.ERROR)
 logger.addHandler(log_handler)
 logger.addHandler(console_handler)
 logger.addHandler(error_handler)
+logger.info("✅ Логгер инициализирован. Запись идёт в файл и консоль.")
 
 # Отдельный логгер для ошибок
 error_handler = logging.FileHandler(error_log_filename, mode='a', encoding='utf-8')
