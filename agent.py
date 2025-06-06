@@ -10,9 +10,9 @@ import time
 from collections import defaultdict
 
 # 🔧 Логгер
-os.makedirs("logs", exist_ok=True)
-log_filename = os.path.join("logs", f"log_{datetime.now().strftime('%Y-%m-%d')}.txt")
-error_log_filename = os.path.join("logs", f"errors_{datetime.now().strftime('%Y-%m-%d')}.txt")
+os.makedirs("/tmp/logs", exist_ok=True)
+log_filename = os.path.join("/tmp/logs", f"log_{datetime.now().strftime('%Y-%m-%d')}.txt")
+error_log_filename = os.path.join("/tmp/logs", f"errors_{datetime.now().strftime('%Y-%m-%d')}.txt")
 
 logger = logging.getLogger("telegram_bot")
 logger.setLevel(logging.INFO)
