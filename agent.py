@@ -10,12 +10,18 @@ import time
 from collections import defaultdict
 
 # 🔧 Логгер
-os.makedirs("/tmp/logs", exist_ok=True)
-log_filename = os.path.join("/tmp/logs", f"log_{datetime.now().strftime('%Y-%m-%d')}.txt")
-error_log_filename = os.path.join("/tmp/logs", f"errors_{datetime.now().strftime('%Y-%m-%d')}.txt")
+log_dir = "/tmp/logs"
+os.makedirs(log_dir, exist_ok=True)
+
+log_filename = os.path.join(log_dir, f"log_{datetime.now().strftime('%Y-%m-%d')}.txt")
+error_log_filename = os.path.join(log_dir, f"errors_{datetime.now().strftime('%Y-%m-%d')}.txt")
 
 logger = logging.getLogger("telegram_bot")
 logger.setLevel(logging.INFO)
+
+# ❗️Удаляем старые хендлеры, чтобы не дублировалось при рестарте
+if logger.hasHandlers():
+    logger.handlers.clear()
 
 formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
 

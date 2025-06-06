@@ -1,4 +1,4 @@
-#!/home/alexander/my_ai_agent/venv/bin/python3
+#!/home/alexander/my_ai_agent/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
