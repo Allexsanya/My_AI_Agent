@@ -2,62 +2,29 @@ import os
 import logging
 from datetime import datetime
 from openai import OpenAI
-from telegram import Update
+from telegram import Update, InputFile
+from telegram.constants import ChatAction
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from dotenv import load_dotenv
 import random
 import time
 from collections import defaultdict
-from telegram.constants import ChatAction
-from telegram.helpers import escape_markdown
-from telegram import InputFile
 
-# 📤 Команда /logs — отправка логов в чат
-async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.chat.send_action(action=ChatAction.UPLOAD_DOCUMENT)
-
-    try:
-        log_path = os.path.join("/tmp/logs", f"log_{datetime.now().strftime('%Y-%m-%d')}.txt")
-        with open(log_path, "rb") as file:
-            await update.message.reply_document(
-                document=InputFile(file),
-                caption="🧾 Логи за сегодня"
-            )
-    except Exception as e:
-        logger.error(f"Ошибка при отправке логов: {e}")
-        await update.message.reply_text("⚠ Не удалось отправить лог-файл.")
-
-# 🔧 Логгер
-log_dir = "/tmp/logs"
-os.makedirs(log_dir, exist_ok=True)
-
-log_filename = os.path.join(log_dir, f"log_{datetime.now().strftime('%Y-%m-%d')}.txt")
-error_log_filename = os.path.join(log_dir, f"errors_{datetime.now().strftime('%Y-%m-%d')}.txt")
-
+# 🔧 Логгер (только консоль для Render)
 logger = logging.getLogger("telegram_bot")
 logger.setLevel(logging.INFO)
 
-# ❗️Удаляем старые хендлеры, чтобы не дублировалось при рестарте
 if logger.hasHandlers():
     logger.handlers.clear()
 
 formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
 
-log_handler = logging.FileHandler(log_filename, mode='a', encoding='utf-8')
-log_handler.setFormatter(formatter)
-
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
-error_handler = logging.FileHandler(error_log_filename, mode='a', encoding='utf-8')
-error_handler.setLevel(logging.ERROR)
-error_handler.setFormatter(formatter)
-
-logger.addHandler(log_handler)
 logger.addHandler(console_handler)
-logger.addHandler(error_handler)
 
-logger.info("✅ Логгер инициализирован. Запись идёт в файл и консоль.")
+logger.info("✅ Логгер инициализирован. Запись идёт в консоль Render.")
 
 # 🔐 Загрузка переменных
 load_dotenv(dotenv_path='secrets/keys.env')
@@ -127,6 +94,10 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error calling OpenAI API: {e}")
         await update.message.reply_text("Извините, произошла ошибка при обработке вашего запроса.")
+
+# 📤 Команда /logs
+async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🧾 Логи доступны только в Render → Logs → All logs.\nБот работает на Render, поэтому лог-файлы не сохраняются локально.")
 
 # 🌍 Webhook URL
 WEBHOOK_URL = "https://my-ai-bot-ehgw.onrender.com"
