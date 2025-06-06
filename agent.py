@@ -15,15 +15,25 @@ os.makedirs("logs", exist_ok=True)
 log_filename = os.path.join("logs", f"log_{datetime.now().strftime('%Y-%m-%d')}.txt")
 error_log_filename = os.path.join("logs", f"errors_{datetime.now().strftime('%Y-%m-%d')}.txt")
 
-# Основной лог
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler(log_filename, mode='a', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+logger = logging.getLogger("telegram_bot")
+logger.setLevel(logging.INFO)
+
+# 📂 Убедимся, что папка logs существует
+os.makedirs("logs", exist_ok=True)
+
+# 🔁 Добавляем оба обработчика вручную
+log_handler = logging.FileHandler(log_filename, mode='a', encoding='utf-8')
+log_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s'))
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s'))
+
+error_handler = logging.FileHandler(error_log_filename, mode='a', encoding='utf-8')
+error_handler.setLevel(logging.ERROR)
+
+logger.addHandler(log_handler)
+logger.addHandler(console_handler)
+logger.addHandler(error_handler)
 
 # Отдельный логгер для ошибок
 error_handler = logging.FileHandler(error_log_filename, mode='a', encoding='utf-8')
