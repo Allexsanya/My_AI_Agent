@@ -37,6 +37,8 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 last_user_request = defaultdict(lambda: 0)  # user_id -> timestamp
+# Local flag test
+LOCAL_TEST = False # put true for local run, falls for render
 
 # 🎯 Команда /quote
 async def quote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -123,9 +125,15 @@ application.add_handler(CommandHandler("quote", quote_command))
 application.add_handler(CommandHandler("logs", logs_command))
 
 # 🚀 Запуск
-application.run_webhook(
-    listen="0.0.0.0",
-    port=int(os.getenv("PORT", 10000)),
-    webhook_url=WEBHOOK_URL,
-)
-logger.info("Тестовая запись в лог локально.")
+
+if LOCAL_TEST:
+    logger.info("🟡 LOCAL_TEST включён — запускаю run_polling()")
+    application.run_polling()
+else:
+    logger.info(f"🟢 PROD режим — запускаю run_webhook() на {WEBHOOK_URL}")
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.getenv("PORT", 10000)),
+        webhook_url=WEBHOOK_URL,
+    )
+# logger.info("Тестовая запись в лог локально.")
