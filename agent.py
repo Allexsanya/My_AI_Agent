@@ -10,7 +10,7 @@ import random
 import time
 from collections import defaultdict
 
-# 🔧 Логгер (только консоль для Render)
+# 🔧 Логгер (консоль для Render + file)
 logger = logging.getLogger("telegram_bot")
 logger.setLevel(logging.INFO)
 
@@ -22,9 +22,13 @@ formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
-logger.addHandler(console_handler)
+file_handler = logging.FileHandler('logs/agent.log', encoding='utf-8')
+file_handler.setFormatter(formatter)
 
-logger.info("✅ Логгер инициализирован. Запись идёт в консоль Render.")
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+
+logger.info("✅ Логгер инициализирован. Запись идёт в консоль и файл.")
 
 # 🔐 Загрузка переменных
 load_dotenv(dotenv_path='secrets/keys.env')
@@ -124,3 +128,4 @@ application.run_webhook(
     port=int(os.getenv("PORT", 10000)),
     webhook_url=WEBHOOK_URL,
 )
+logger.info("Тестовая запись в лог локально.")
