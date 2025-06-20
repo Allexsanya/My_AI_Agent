@@ -1,14 +1,27 @@
 import os
 import logging
-from datetime import datetime
 from openai import OpenAI
-from telegram import Update, InputFile
-from telegram.constants import ChatAction
+from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from dotenv import load_dotenv
 import random
 import time
 from collections import defaultdict
+from Smoke_reminder.reminder_scheduler import setup_scheduler as setup_smoke_scheduler
+
+async def start_bot():
+    await setup_smoke_scheduler()  # запуск напоминалки
+
+    if LOCAL_TEST:
+        logger.info("🟡 LOCAL_TEST включён — запускаю run_polling()")
+        await application.run_polling()
+    else:
+        logger.info(f"🟢 PROD режим — запускаю run_webhook() на {WEBHOOK_URL}")
+        await application.run_webhook(
+            listen="0.0.0.0",
+            port=int(os.getenv("PORT", 10000)),
+            webhook_url=WEBHOOK_URL,
+        )
 
 # 🔧 Логгер (консоль для Render + file)
 logger = logging.getLogger("telegram_bot")
@@ -136,4 +149,9 @@ else:
         port=int(os.getenv("PORT", 10000)),
         webhook_url=WEBHOOK_URL,
     )
-# logger.info("Тестовая запись в лог локально.")
+# from venv.Smoke_reminder.reminder_scheduler import setup_scheduler
+# setup_scheduler()
+import asyncio
+
+if __name__ == "__main__":
+    asyncio.run(start_bot())
