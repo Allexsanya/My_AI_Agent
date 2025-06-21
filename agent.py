@@ -6,6 +6,7 @@ from telegram.ext import ApplicationBuilder
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import pytz
 from dotenv import load_dotenv
+import sys
 
 from bot_chat.chat_handler import setup_chat_handlers
 from smoking_reminder.smoking_tracker import setup_smoking_scheduler, calculate_days_and_savings
