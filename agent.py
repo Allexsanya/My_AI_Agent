@@ -1,157 +1,175 @@
+import asyncio
 import os
 import logging
-from openai import OpenAI
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from datetime import datetime
+from telegram.ext import ApplicationBuilder
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import pytz
 from dotenv import load_dotenv
-import random
-import time
-from collections import defaultdict
-from Smoke_reminder.reminder_scheduler import setup_scheduler as setup_smoke_scheduler
 
-async def start_bot():
-    await setup_smoke_scheduler()  # запуск напоминалки
+from bot_chat.chat_handler import setup_chat_handlers
+from smoking_reminder.smoking_tracker import setup_smoking_scheduler, calculate_days_and_savings
+from lina_water.water_reminder import setup_water_scheduler
 
-    if LOCAL_TEST:
-        logger.info("🟡 LOCAL_TEST включён — запускаю run_polling()")
-        await application.run_polling()
-    else:
-        logger.info(f"🟢 PROD режим — запускаю run_webhook() на {WEBHOOK_URL}")
-        await application.run_webhook(
-            listen="0.0.0.0",
-            port=int(os.getenv("PORT", 10000)),
-            webhook_url=WEBHOOK_URL,
-        )
+# 🔧 Включаем tracemalloc для отладки
+import tracemalloc
 
-# 🔧 Логгер (консоль для Render + file)
-logger = logging.getLogger("telegram_bot")
-logger.setLevel(logging.INFO)
+tracemalloc.start()
 
-if logger.hasHandlers():
-    logger.handlers.clear()
+# 🔧 Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+# Отключаем лишние логи
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('telegram').setLevel(logging.WARNING)
+logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-
-file_handler = logging.FileHandler('logs/agent.log', encoding='utf-8')
-file_handler.setFormatter(formatter)
-
-logger.addHandler(console_handler)
-logger.addHandler(file_handler)
-
-logger.info("✅ Логгер инициализирован. Запись идёт в консоль и файл.")
-
-# 🔐 Загрузка переменных
+# 🔐 Загрузка переменных окружения
 load_dotenv(dotenv_path='secrets/keys.env')
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-client = OpenAI(api_key=OPENAI_API_KEY)
-last_user_request = defaultdict(lambda: 0)  # user_id -> timestamp
-# Local flag test
-LOCAL_TEST = False # put true for local run, falls for render
+# Получение токенов и ID
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+USER_ID_STR = os.getenv("USER_ID")
+LINA_USER_ID_STR = os.getenv("LINA_USER_ID")
 
-# 🎯 Команда /quote
-async def quote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    quotes = [
-        "Не знаешь как поступать? Поступай как знаешь.",
-        "Если заблудился, то иди домой.",
-        "Если тонешь, то плыви к берегу."
-    ]
-    await update.message.reply_text(random.choice(quotes))
+# Проверка обязательных переменных
+if not TELEGRAM_TOKEN:
+    raise ValueError("TELEGRAM_TOKEN не найден в файле .env")
+if not USER_ID_STR:
+    raise ValueError("USER_ID не найден в файле .env")
 
-# 🤖 Основной обработчик
-async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    user_id = user.id
-    username = user.username or "NoUsername"
-    user_text = update.message.text
+try:
+    USER_ID = int(USER_ID_STR)
+except ValueError:
+    raise ValueError(f"USER_ID должен быть числом, получено: {USER_ID_STR}")
 
-    # 🧹 Спам-фильтрация
-    if len(user_text) > 500:
-        await update.message.reply_text("😶 Слишком длинное сообщение, сократи, бро.")
-        return
-
-    if "http" in user_text.lower() or "@" in user_text:
-        logger.warning(f"🔗 LINK/SPAM from {username} ({user_id}): {user_text}")
-        await update.message.reply_text("🚫 Ссылки и упоминания запрещены.")
-        return
-
-    SPAM_KEYWORDS = ["crypto", "sex", "porn", "nude", "casino", "bitcoin"]
-    if any(word in user_text.lower() for word in SPAM_KEYWORDS):
-        logger.warning(f"SPAM BLOCKED from {username} ({user_id}): {user_text}")
-        await update.message.reply_text("🚫 Это сообщение похоже на спам.")
-        return
-
-    # ⏱ Антифлуд
-    now = time.time()
-    if now - last_user_request[user_id] < 10:
-        await update.message.reply_text("Not so fast bro, I'm thinking")
-        return
-    last_user_request[user_id] = now
-
-    logger.info(f"[{username} | ID: {user_id}] -> {user_text}")
-    user_question = update.message.text
-    if not user_question:
-        await update.message.reply_text("Бро, напиши вопрос после /ask :)")
-        return
-
+# ID для напоминаний о воде
+LINA_USER_ID = None
+if LINA_USER_ID_STR:
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Ты дружелюбный помощник."},
-                {"role": "user", "content": user_question}
-            ]
-        )
-        answer = response.choices[0].message.content
-        logger.info(f"User question: {user_question}")
-        logger.info(f"OpenAI response: {answer}")
-        await update.message.reply_text(answer)
-    except Exception as e:
-        logger.error(f"Error calling OpenAI API: {e}")
-        await update.message.reply_text("Извините, произошла ошибка при обработке вашего запроса.")
+        LINA_USER_ID = int(LINA_USER_ID_STR)
+    except ValueError:
+        logger.warning(f"LINA_USER_ID должен быть числом, получено: {LINA_USER_ID_STR}")
 
-# 📤 Команда /logs
-async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🧾 Логи доступны только в Render → Logs → All logs.\nБот работает на Render, поэтому лог-файлы не сохраняются локально.")
-
-# 🌍 Webhook URL
+# Настройки
+vancouver_tz = pytz.timezone('America/Vancouver')
+LOCAL_TEST = False
 WEBHOOK_URL = "https://my-ai-bot-ehgw.onrender.com"
 
-# 📌 Команда /start
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    user_id = user.id
-    username = user.username or "NoUsername"
-    logger.info(f"[{username} | ID: {user_id}] sent /start")
-    await update.message.reply_text("👋 Привет! Просто напиши сообщение, и я постараюсь ответить как умный бот!")
 
-# 🛠️ Telegram приложение
-application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ask_command))
-application.add_handler(CommandHandler("start", start_command))
-application.add_handler(CommandHandler("help", start_command))
-application.add_handler(CommandHandler("quote", quote_command))
-application.add_handler(CommandHandler("logs", logs_command))
+async def send_startup_message(bot):
+    """Отправка сообщения о запуске бота"""
+    try:
+        days, money_saved, cigarettes_not_smoked = calculate_days_and_savings()
+        startup_message = f"""🤖 Бот запущен!
 
-# 🚀 Запуск
+📊 Текущая статистика курения:
+🗓️ Дней без курения: {days}
+💰 Сэкономлено: ${money_saved:.2f}
+🚬 Не выкурено: {cigarettes_not_smoked} сигарет
 
-if LOCAL_TEST:
-    logger.info("🟡 LOCAL_TEST включён — запускаю run_polling()")
-    application.run_polling()
-else:
-    logger.info(f"🟢 PROD режим — запускаю run_webhook() на {WEBHOOK_URL}")
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.getenv("PORT", 10000)),
-        webhook_url=WEBHOOK_URL,
-    )
-# from venv.Smoke_reminder.reminder_scheduler import setup_scheduler
-# setup_scheduler()
-import asyncio
+⏰ Ежедневные напоминания в 6:40 AM Vancouver time
+🕒 Текущее время: {datetime.now(vancouver_tz).strftime('%H:%M:%S')}"""
+
+        await bot.send_message(chat_id=USER_ID, text=startup_message)
+        logger.info("Стартовое сообщение отправлено")
+    except Exception as e:
+        logger.error(f"Ошибка при отправке стартового сообщения: {e}")
+
+
+async def main():
+    """Основная функция"""
+    application = None
+    scheduler = None
+
+    try:
+        # Настройка Telegram приложения
+        application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+        # Подключение обработчиков из модулей
+        setup_chat_handlers(application)
+
+        # Проверка подключения к боту
+        bot_info = await application.bot.get_me()
+        logger.info(f"Бот подключен: @{bot_info.username}")
+
+        # Настройка планировщика
+        scheduler = AsyncIOScheduler(timezone=vancouver_tz)
+
+        # Подключение планировщиков из модулей
+        setup_smoking_scheduler(scheduler, application.bot, USER_ID)
+        if LINA_USER_ID:
+            setup_water_scheduler(scheduler, application.bot, LINA_USER_ID)
+            logger.info("Напоминания о воде включены")
+        else:
+            logger.info("Напоминания о воде отключены (LINA_USER_ID не установлен)")
+
+        scheduler.start()
+        logger.info("Планировщик запущен")
+        logger.info(f"Текущее время Vancouver: {datetime.now(vancouver_tz)}")
+
+        # Отправка сообщения о запуске
+        await send_startup_message(application.bot)
+
+        # Запуск в зависимости от режима
+        if LOCAL_TEST:
+            logger.info("🟡 LOCAL_TEST включён — запускаю run_polling()")
+            await application.run_polling(drop_pending_updates=True)
+        else:
+            logger.info(f"🟢 PROD режим — запускаю run_webhook() на {WEBHOOK_URL}")
+            await application.run_webhook(
+                listen="0.0.0.0",
+                port=int(os.getenv("PORT", 10000)),
+                webhook_url=WEBHOOK_URL,
+                drop_pending_updates=True
+            )
+
+    except Exception as e:
+        logger.error(f"Критическая ошибка: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        # Корректная остановка
+        if scheduler and scheduler.running:
+            try:
+                scheduler.shutdown(wait=False)
+                logger.info("Планировщик остановлен")
+            except Exception as e:
+                logger.error(f"Ошибка при остановке планировщика: {e}")
+
+        if application:
+            try:
+                await application.shutdown()
+                logger.info("Приложение остановлено")
+            except Exception as e:
+                logger.error(f"Ошибка при остановке приложения: {e}")
+
+        logger.info("Бот остановлен")
+
+
+def run_bot():
+    """Запуск бота с правильной обработкой event loop"""
+    try:
+        try:
+            loop = asyncio.get_running_loop()
+            logger.info("Обнаружен работающий event loop, используем его")
+            import nest_asyncio
+            nest_asyncio.apply()
+            loop.run_until_complete(main())
+        except RuntimeError:
+            logger.info("Создаем новый event loop")
+            asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Остановка по Ctrl+C")
+    except Exception as e:
+        logger.error(f"Ошибка запуска: {e}")
+        import traceback
+        traceback.print_exc()
+
 
 if __name__ == "__main__":
-    asyncio.run(start_bot())
+    run_bot()
