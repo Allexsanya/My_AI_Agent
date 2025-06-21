@@ -14,6 +14,8 @@ from lina_water.water_reminder import setup_water_scheduler
 # 🔧 Включаем tracemalloc для отладки
 import tracemalloc
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 tracemalloc.start()
 
 # 🔧 Настройка логирования
