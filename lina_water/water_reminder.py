@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from apscheduler.triggers.cron import CronTrigger
 import pytz
+import asyncio
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -120,13 +121,35 @@ async def hourly_water_check(bot, user_id):
         logger.info("Ночное время - напоминание о воде пропущено")
 
 
+# Обёртки для планировщика
+def hourly_water_wrapper(bot, user_id):
+    """Синхронная обёртка для ежечасного напоминания"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(hourly_water_check(bot, user_id))
+    finally:
+        loop.close()
+
+
+def special_water_wrapper(bot, user_id):
+    """Синхронная обёртка для специального напоминания"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(send_special_water_reminder(bot, user_id))
+    finally:
+        loop.close()
+
+
 def setup_water_scheduler(scheduler, bot, user_id):
     """Настройка планировщика для напоминаний о воде"""
 
     # Основные ежечасные напоминания (с 7:00 до 22:00)
     scheduler.add_job(
-        lambda: hourly_water_check(bot, user_id),
+        hourly_water_wrapper,
         CronTrigger(minute=0, timezone=vancouver_tz),
+        args=[bot, user_id],
         id='hourly_water_reminder',
         name='Ежечасное напоминание о воде'
     )
@@ -134,24 +157,27 @@ def setup_water_scheduler(scheduler, bot, user_id):
     # Специальные напоминания в ключевые моменты дня
     # Утреннее напоминание (7:30)
     scheduler.add_job(
-        lambda: send_special_water_reminder(bot, user_id),
+        special_water_wrapper,
         CronTrigger(hour=7, minute=30, timezone=vancouver_tz),
+        args=[bot, user_id],
         id='morning_water_reminder',
         name='Утреннее напоминание о воде'
     )
 
     # Обеденное напоминание (12:30)
     scheduler.add_job(
-        lambda: send_special_water_reminder(bot, user_id),
+        special_water_wrapper,
         CronTrigger(hour=12, minute=30, timezone=vancouver_tz),
+        args=[bot, user_id],
         id='lunch_water_reminder',
         name='Обеденное напоминание о воде'
     )
 
     # Вечернее напоминание (18:30)
     scheduler.add_job(
-        lambda: send_special_water_reminder(bot, user_id),
+        special_water_wrapper,
         CronTrigger(hour=18, minute=30, timezone=vancouver_tz),
+        args=[bot, user_id],
         id='evening_water_reminder',
         name='Вечернее напоминание о воде'
     )

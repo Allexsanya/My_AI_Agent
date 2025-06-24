@@ -1,5 +1,4 @@
 secrets/keys.env
-secrets/keys.env
 # Секретные файлы
 secrets/
 *.env

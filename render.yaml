@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: my-ai-bot
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: python bot_web.py
+    envVars:
+      - key: TELEGRAM_TOKEN
+        fromDotEnv: true
+      - key: USER_ID
+        fromDotEnv: true
+      - key: LINA_USER_ID
+        fromDotEnv: true
+      - key: MOTHER_USER_ID
+        fromDotEnv: true
+      - key: OPENAI_API_KEY
+        fromDotEnv: true
+      - key: PORT
+        value: 10000
+
+  - type: worker
+    name: ai-reminders
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: python reminders_worker.py
+    envVars:
+      - key: TELEGRAM_TOKEN
+        fromDotEnv: true
+      - key: USER_ID
+        fromDotEnv: true
+      - key: LINA_USER_ID
+        fromDotEnv: true
+      - key: MOTHER_USER_ID
+        fromDotEnv: true
+      - key: OPENAI_API_KEY
+        fromDotEnv: true

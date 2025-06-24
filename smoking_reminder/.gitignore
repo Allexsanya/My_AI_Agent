@@ -13,6 +13,7 @@ eggs/
 lib/
 lib64/
 parts/
+secrets/
 sdist/
 var/
 wheels/
@@ -21,6 +22,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+keys.env
 
 # Environment variables
 .env
@@ -50,3 +52,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+venv/
+*.env
