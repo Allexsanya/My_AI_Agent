@@ -1,9 +1,9 @@
 python-telegram-bot[webhooks]==13.5
-openai==1.18.0
+openai
 python-dotenv
 apscheduler
 python-telegram-bot
 python-dotenv
-APScheduler==3.10.4
+APScheduler==3.6.3
 pytz==2023.3
 nest-asyncio==1.5.8
