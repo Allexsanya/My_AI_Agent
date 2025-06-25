@@ -1,10 +1,11 @@
 services:
   - type: web
-    name: my-ai-bot
+    name: My_AI_Agent-web
     env: python
     plan: free
-    buildCommand: ""
+    buildCommand: pip install -r requirements.txt
     startCommand: python bot_web.py
+    pythonVersion: 3.10
     envVars:
       - key: TELEGRAM_TOKEN
         fromDotEnv: true

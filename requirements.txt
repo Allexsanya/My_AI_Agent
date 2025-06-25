@@ -1,4 +1,4 @@
-python-telegram-bot[webhooks]==13.5
+python-telegram-bot==13.5
 openai
 python-dotenv
 apscheduler
